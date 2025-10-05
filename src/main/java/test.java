@@ -2,6 +2,8 @@ import javax.naming.*;
 import javax.naming.directory.*;
 import java.util.Hashtable;
 import java.util.Enumeration;
+
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class test {
@@ -23,14 +25,29 @@ public class test {
             searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
 
             NamingEnumeration<SearchResult> results = ctx.search(searchBase, searchFilter, searchControls);
-            int resultCount = 0; // Initialize the count variable
+            JSONArray entries = new JSONArray();
 
             while (results.hasMore()) {
-                results.next(); // Move to the next result
-                resultCount++; // Increment the count for each result
+                SearchResult sr = results.next();
+                JSONObject entry = new JSONObject();
+                entry.put("dn", sr.getNameInNamespace());
+                Attributes attrs = sr.getAttributes();
+                JSONObject attributes = new JSONObject();
+                NamingEnumeration<? extends Attribute> allAttrs = attrs.getAll();
+                while (allAttrs.hasMore()) {
+                    Attribute attr = allAttrs.next();
+                    JSONArray values = new JSONArray();
+                    NamingEnumeration<?> vals = attr.getAll();
+                    while (vals.hasMore()) {
+                        values.put(vals.next());
+                    }
+                    attributes.put(attr.getID(), values);
+                }
+                entry.put("attributes", attributes);
+                entries.put(entry);
             }
 
-            return "{\"resultCount\": " + resultCount + "}"; // Return the count as a JSON object
+            return entries.toString();
         } catch (AuthenticationException ae) {
             return "{\"error\": \"Authentication failed: " + ae.getMessage() + "\"}";
         } catch (Exception e) {
@@ -45,7 +62,7 @@ public class test {
     public static void main(String[] args) {
         fetchLDAPUser ldapFetcher = new fetchLDAPUser();
         try {
-            String jsonResult = test("ldap://10.0.0.8:389", "CN=Mohamed Reda,OU=DEV,OU=Sumerge,DC=sumergedc,DC=local", "mypasswordhere", "OU=DEV,OU=Sumerge,DC=sumergedc,DC=local", "sAMAccountName", "mreda");
+            String jsonResult = test("ldap://10.0.0.8:389", "CN=Mohamed Reda,OU=DEV,OU=Sumerge,DC=sumergedc,DC=local", "mypassword", "OU=DEV,OU=Sumerge,DC=sumergedc,DC=local", "sAMAccountName", "mreda");
             System.out.println("LDAP Search Result Count: " + jsonResult);
         } catch (Exception e) {
             e.printStackTrace();
